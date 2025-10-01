@@ -1,84 +1,72 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" dir="ltr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Спектр голоса — онлайн анализатор (F1–F4)</title>
 <style>
-  :root {
-    --bg: #ffffff;
-    --fg: #111111;
-    --muted: #666666;
-    --accent: #000000;
-    --grid: #bbbbbb;
-  }
-  html, body { height: 100%; }
-  body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Helvetica Neue", sans-serif;
-    margin: 0; padding: 16px; background: var(--bg); color: var(--fg);
-  }
-  h1 { font-size: 20px; margin: 0 0 8px 0; }
-  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-  .panel {
-    border: 1px solid #ddd; border-radius: 12px; padding: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    margin-bottom: 12px;
-  }
-  label { font-size: 14px; color: var(--muted); margin-right: 6px; }
-  button, select, input[type="range"], input[type="number"] {
-    font: inherit; border-radius: 10px; border: 1px solid #ccc; padding: 6px 10px; background: #fafafa; color: var(--fg);
-  }
-  button { background: #111; color: #fff; cursor: pointer; }
-  button.secondary { background: #f5f5f5; color: #111; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  canvas { width: 100%; height: 360px; display: block; background: #fff; border-radius: 12px; }
-  .foot { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .badge { padding: 2px 8px; border-radius: 999px; border: 1px solid #ddd; background: #f8f8f8; }
-  .grid-note { font-size: 12px; color: var(--muted); }
-  .flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .spacer { flex: 1; }
-  .hr { height: 1px; background: #eee; margin: 10px 0; }
+  :root { --bg:#fff; --fg:#111; --muted:#666; --grid:#bbb; }
+  body { font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,"Noto Sans","Helvetica Neue",sans-serif; margin:0; padding:16px; background:var(--bg); color:var(--fg);}
+  h1 { font-size:20px; margin:0 0 8px 0; }
+  .row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  .panel { border:1px solid #ddd; border-radius:12px; padding:12px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.08); margin-bottom:12px; }
+  label { font-size:14px; color:var(--muted); margin-right:6px; }
+  button, select, input[type="range"], input[type="number"] { font:inherit; border-radius:10px; border:1px solid #ccc; padding:6px 10px; background:#fafafa; color:var(--fg);}
+  button { background:#111; color:#fff; cursor:pointer; }
+  button.secondary { background:#f5f5f5; color:#111; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  canvas { width:100%; height:360px; display:block; background:#fff; border-radius:12px; }
+  .foot { font-size:12px; color:var(--muted); margin-top:6px; }
+  .badge { padding:2px 8px; border-radius:999px; border:1px solid #ddd; background:#f8f8f8; }
+  .grid-note { font-size:12px; color:var(--muted); }
+  .flex { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .spacer { flex:1; }
+  .hr { height:1px; background:#eee; margin:10px 0; }
 </style>
 </head>
 <body>
-  <h1>Спектр голоса — онлайн анализатор (F1–F4)</h1>
+  <h1 id="title">Спектр голоса — онлайн анализатор (F1–F4)</h1>
   <div class="panel">
     <div class="row">
+      <label for="langSelect">🌐</label>
+      <select id="langSelect">
+        <option value="ru">Русский</option>
+        <option value="en">English</option>
+        <option value="he">עברית</option>
+      </select>
+      <span class="spacer"></span>
       <button id="btnStart">▶ Начать запись</button>
       <button id="btnStop" class="secondary" disabled>■ Остановить</button>
       <span id="status" class="badge">Статус: ожидание разрешения микрофона…</span>
-      <span class="spacer"></span>
-      <button id="btnFreeze" class="secondary" disabled>⏸️ Заморозить/возобновить</button>
+      <button id="btnFreeze" class="secondary" disabled>Заморозить/возобновить</button>
       <button id="btnSnapshot" class="secondary" disabled>📸 Снимок PNG</button>
       <button id="btnSnapshotHTML" class="secondary" disabled>📄 Снимок HTML</button>
       <button id="btnXLSX" class="secondary" disabled>⬇ Экспорт XLSX</button>
     </div>
     <div class="hr"></div>
     <div class="flex">
-      <label for="selFFT">FFT размер:</label>
+      <label for="selFFT" id="lblFFT">FFT размер:</label>
       <select id="selFFT">
-        <option>2048</option>
-        <option selected>4096</option>
-        <option>8192</option>
-        <option>16384</option>
+        <option>2048</option><option selected>4096</option><option>8192</option><option>16384</option>
       </select>
 
-      <label for="rngSmooth">Сглаживание:</label>
+      <label for="rngSmooth" id="lblSmoothTitle">Сглаживание:</label>
       <input id="rngSmooth" type="range" min="0" max="0.95" step="0.05" value="0.6">
       <span id="lblSmooth" class="badge">0.60</span>
 
-      <label for="maxHz">Макс. частота (Гц):</label>
-      <input id="maxHz" type="number" min="1000" max="22050" step="100" value="4000" style="width:100px;">
+      <label for="maxHz" id="lblMaxHz">Макс. частота (Гц):</label>
+      <input id="maxHz" type="number" min="1000" max="22050" step="100" value="4000" style="width:110px;">
 
-      <label for="peakThresh">Порог пиков (дБ):</label>
-      <input id="peakThresh" type="number" step="1" value="-70" style="width:80px;">
+      <label for="peakThresh" id="lblThresh">Порог пиков (дБ):</label>
+      <input id="peakThresh" type="number" step="1" value="-70" style="width:90px;">
       
-      <label for="peakMinSep">Мин. разнос (Гц):</label>
-      <input id="peakMinSep" type="number" step="10" value="150" style="width:80px;">
+      <label for="peakMinSep" id="lblSep">Мин. разнос (Гц):</label>
+      <input id="peakMinSep" type="number" step="10" value="150" style="width:90px;">
 
-      <label><input id="chkFormants" type="checkbox" checked> Подписи F1–F4</label>
-      <label><input id="chkFormantLines" type="checkbox" checked> Границы F1–F4 (штриховые)</label>
+      <label><input id="chkFormants" type="checkbox" checked> <span id="lblShowLabels">Подписи F1–F4</span></label>
+      <label><input id="chkFormantLines" type="checkbox" checked> <span id="lblShowLines">Границы F1–F4 (штриховые)</span></label>
     </div>
-    <div class="grid-note">Оси: горизонталь — частота (Гц), вертикаль — уровень (дБ). Вертикальные линии сетки подстраиваются под выбранный предел частоты.</div>
+    <div class="grid-note" id="gridNote">Оси: горизонталь — частота (Гц), вертикаль — уровень (дБ). Вертикальные линии сетки подстраиваются под выбранный предел частоты.</div>
   </div>
 
   <div class="panel">
@@ -87,219 +75,256 @@
   </div>
 
 <script>
-(() => {
-  // State
-  let audioCtx = null;
-  let analyser = null;
-  let micStream = null;
-  let rafId = null;
-  let frozen = false;
-  let sampleRate = 48000; // will be replaced by real audioCtx.sampleRate
-  let freqData = null; // Float32Array in dB
-  let running = false;
+(()=>{
 
-  // UI
-  const $ = sel => document.querySelector(sel);
-  const btnStart = $("#btnStart");
-  const btnStop = $("#btnStop");
-  const btnFreeze = $("#btnFreeze");
-  const btnSnapshot = $("#btnSnapshot");
-  const btnSnapshotHTML = $("#btnSnapshotHTML");
-  const btnXLSX = $("#btnXLSX");
-  const status = $("#status");
-  const canvas = $("#canvas");
-  const ctx = canvas.getContext("2d");
-  const selFFT = $("#selFFT");
-  const rngSmooth = $("#rngSmooth");
-  const lblSmooth = $("#lblSmooth");
-  const maxHzInput = $("#maxHz");
-  const peakThreshInput = $("#peakThresh");
-  const peakMinSepInput = $("#peakMinSep");
-  const chkFormants = $("#chkFormants");
-  const chkFormantLines = $("#chkFormantLines");
-  const footText = $("#footText");
+  const L = {
+    "ru": {
+      "title":"Спектр голоса — онлайн анализатор (F1–F4)",
+      "status_wait":"Статус: ожидание разрешения микрофона…",
+      "btn_start":"Начать запись","btn_stop":"Остановить","btn_freeze":"Заморозить/возобновить","btn_resume":"Возобновить",
+      "btn_snap_png":"Снимок PNG","btn_snap_html":"Снимок HTML","btn_xlsx":"Экспорт XLSX",
+      "fft_size":"FFT размер:","smoothing":"Сглаживание:","max_freq":"Макс. частота (Гц):","peak_thresh":"Порог пиков (дБ):","peak_sep":"Мин. разнос (Гц):",
+      "labels_on":"Подписи F1–F4","lines_on":"Границы F1–F4 (штриховые)","grid_note":"Оси: горизонталь — частота (Гц), вертикаль — уровень (дБ). Вертикальные линии сетки подстраиваются под выбранный предел частоты.",
+      "axis_x":"Частота, Гц","axis_y":"Уровень, дБ","unit_hz":"Гц","unit_db":"дБ",
+      "status_nogum":"Браузер/контекст не даёт доступ к микрофону (нужен HTTPS или localhost, современный браузер).",
+      "status_ask":"Запрашивается доступ к микрофону…",
+      "status_running":"Идёт анализ… (частота дискретизации {fs} Гц)","status_stopped":"Остановлено",
+      "status_denied":"Доступ к микрофону запрещён. Разрешите доступ в настройках сайта/браузера.",
+      "status_insecure":"Доступ к микрофону заблокирован: откройте страницу через HTTPS (или http://localhost).",
+      "status_notfound":"Микрофон не обнаружен. Проверьте подключение/настройки устройства.",
+      "status_busy":"Микрофон занят другой программой. Закройте её и попробуйте снова.",
+      "status_generic":"Ошибка аудио: {msg}",
+      "status_demo":"Демо-режим: микрофон недоступен, идёт анализ синтетического сигнала (f_s {fs} Гц).",
+      "no_peaks":"Пики не обнаружены (увеличьте громкость, уменьшите порог или диапазон частот). FFT: {fft}, f_s: {fs} Гц.",
+      "peaks_found":"Формантные пики: {list}.  Порог: {th} дБ, Мин. разнос: {sep} Гц, FFT: {fft}, f_s: {fs} Гц.",
+      "snapshot_title":"Снимок спектра голоса","snapshot_params":"Параметры","snapshot_meta":"Источник: локальная запись с микрофона/демо; файл самодостаточен, сгенерирован ",
+      "labels":["F1","F2","F3","F4"]
+    },
+    "en": {
+      "title":"Voice Spectrum — Online Analyzer (F1–F4)",
+      "status_wait":"Status: waiting for microphone permission…",
+      "btn_start":"Start","btn_stop":"Stop","btn_freeze":"Freeze/Resume","btn_resume":"Resume",
+      "btn_snap_png":"Snapshot PNG","btn_snap_html":"Snapshot HTML","btn_xlsx":"Export XLSX",
+      "fft_size":"FFT size:","smoothing":"Smoothing:","max_freq":"Max frequency (Hz):","peak_thresh":"Peak threshold (dB):","peak_sep":"Min spacing (Hz):",
+      "labels_on":"Show F1–F4 labels","lines_on":"Show F1–F4 boundaries (dashed)","grid_note":"Axes: horizontal — frequency (Hz), vertical — level (dB). Vertical grid auto-fits to selected max frequency.",
+      "axis_x":"Frequency, Hz","axis_y":"Level, dB","unit_hz":"Hz","unit_db":"dB",
+      "status_nogum":"Browser/context blocks microphone (HTTPS or localhost required, modern browser).",
+      "status_ask":"Requesting microphone access…",
+      "status_running":"Analyzing… (sample rate {fs} Hz)","status_stopped":"Stopped",
+      "status_denied":"Microphone access denied. Allow it in site/browser settings.",
+      "status_insecure":"Microphone blocked: open this page over HTTPS (or http://localhost).",
+      "status_notfound":"No microphone found. Check device / settings.",
+      "status_busy":"Microphone is busy in another app. Close it and retry.",
+      "status_generic":"Audio error: {msg}",
+      "status_demo":"Demo mode: microphone unavailable, analyzing synthetic signal (f_s {fs} Hz).",
+      "no_peaks":"No peaks found (increase volume, lower threshold or frequency range). FFT: {fft}, f_s: {fs} Hz.",
+      "peaks_found":"Formant peaks: {list}.  Threshold: {th} dB, Min spacing: {sep} Hz, FFT: {fft}, f_s: {fs} Hz.",
+      "snapshot_title":"Voice spectrum snapshot","snapshot_params":"Parameters","snapshot_meta":"Source: mic/demo; self-contained file generated ",
+      "labels":["F1","F2","F3","F4"]
+    },
+    "he": {
+      "title":"ספקטרום קול — מנתח מקוון (F1–F4)",
+      "status_wait":"סטטוס: ממתין להרשאת מיקרופון…",
+      "btn_start":"התחלה","btn_stop":"עצירה","btn_freeze":"הקפא/המשך","btn_resume":"המשך",
+      "btn_snap_png":"תמונת PNG","btn_snap_html":"צילום HTML","btn_xlsx":"יצוא XLSX",
+      "fft_size":"גודל FFT:","smoothing":"החלקה:","max_freq":"תדירות מרבית (Hz):","peak_thresh":"סף שיאים (dB):","peak_sep":"מרווח מינימלי (Hz):",
+      "labels_on":"הצג תוויות F1–F4","lines_on":"הצג גבולות F1–F4 (מקווקו)","grid_note":"צירים: אופקי — תדירות (Hz), אנכי — רמה (dB). רשת אנכית מותאמת אוטומטית לתקרה שנבחרה.",
+      "axis_x":"תדירות, Hz","axis_y":"רמה, dB","unit_hz":"Hz","unit_db":"dB",
+      "status_nogum":"הדפדפן/הקשר חוסם מיקרופון (נדרש HTTPS או localhost, דפדפן מודרני).",
+      "status_ask":"מבקש גישה למיקרופון…",
+      "status_running":"מבצע ניתוח… (קצב דגימה {fs} Hz)","status_stopped":"נעצר",
+      "status_denied":"הגישה למיקרופון נדחתה. אפשרו זאת בהגדרות האתר/הדפדפן.",
+      "status_insecure":"מיקרופון חסום: פתחו את הדף דרך HTTPS (או http://localhost).",
+      "status_notfound":"מיקרופון לא נמצא. בדקו את ההתקן/ההגדרות.",
+      "status_busy":"המיקרופון בשימוש של יישום אחר. סגרו אותו ונסו שוב.",
+      "status_generic":"שגיאת אודיו: {msg}",
+      "status_demo":"מצב הדגמה: אין מיקרופון, מנתח אות סינתטי (f_s {fs} Hz).",
+      "no_peaks":"לא נמצאו שיאים (הגבירו ווליום, הורידו סף או טווח תדירויות). FFT: {fft}, f_s: {fs} Hz.",
+      "peaks_found":"שיאי פורמנטים: {list}.  סף: {th} dB, ריווח מינ׳: {sep} Hz, FFT: {fft}, f_s: {fs} Hz.",
+      "snapshot_title":"צילום ספקטרום קול","snapshot_params":"פרמטרים","snapshot_meta":"מקור: מיקרופון/דמו; קובץ עצמאי נוצר ",
+      "labels":["F1","F2","F3","F4"]
+    }
+  };
 
-  // ---- Persistence ----
-  const STORAGE_KEY = "voice_spectrum_settings_v2"; // includes formant lines toggle
-  function saveSettings() {
-    const s = {
-      fft: selFFT.value,
-      smooth: rngSmooth.value,
-      maxHz: maxHzInput.value,
-      peakThresh: peakThreshInput.value,
-      peakMinSep: peakMinSepInput.value,
-      showFormants: chkFormants.checked ? 1 : 0,
-      showFormantLines: chkFormantLines.checked ? 1 : 0,
-    };
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  let audioCtx=null, analyser=null, micStream=null, rafId=null, frozen=false;
+  let sampleRate=48000, freqData=null, running=false;
+  let currentLang = localStorage.getItem("voice_spectrum_lang") || "ru";
+  let isDemo=false, demoOsc=[], demoMute=null;
+
+  const $ = s=>document.querySelector(s);
+  const title=$("#title"), langSelect=$("#langSelect"), btnStart=$("#btnStart"), btnStop=$("#btnStop"), btnFreeze=$("#btnFreeze");
+  const btnSnapshot=$("#btnSnapshot"), btnSnapshotHTML=$("#btnSnapshotHTML"), btnXLSX=$("#btnXLSX"), status=$("#status");
+  const canvas=$("#canvas"), ctx=canvas.getContext("2d");
+  const selFFT=$("#selFFT"), rngSmooth=$("#rngSmooth"), lblSmooth=$("#lblSmooth"), lblSmoothTitle=$("#lblSmoothTitle");
+  const maxHzInput=$("#maxHz"), peakThreshInput=$("#peakThresh"), peakMinSepInput=$("#peakMinSep");
+  const chkFormants=$("#chkFormants"), chkFormantLines=$("#chkFormantLines");
+  const lblFFT=$("#lblFFT"), lblMaxHz=$("#lblMaxHz"), lblThresh=$("#lblThresh"), lblSep=$("#lblSep");
+  const lblShowLabels=$("#lblShowLabels"), lblShowLines=$("#lblShowLines"), gridNote=$("#gridNote"), footText=$("#footText");
+
+  const STORAGE_KEY="voice_spectrum_settings_v4xlsx";
+  function saveSettings(){
+    const s={ lang: currentLang, fft: selFFT.value, smooth: rngSmooth.value, maxHz: maxHzInput.value,
+      peakThresh: peakThreshInput.value, peakMinSep: peakMinSepInput.value,
+      showFormants: chkFormants.checked?1:0, showFormantLines: chkFormantLines.checked?1:0 };
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); localStorage.setItem("voice_spectrum_lang", currentLang); }catch(e){}
   }
-  function loadSettings() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const s = JSON.parse(raw);
-      if (s.fft != null) selFFT.value = String(s.fft);
-      if (s.smooth != null) { rngSmooth.value = String(s.smooth); lblSmooth.textContent = (+s.smooth).toFixed(2); }
-      if (s.maxHz != null) maxHzInput.value = String(s.maxHz);
-      if (s.peakThresh != null) peakThreshInput.value = String(s.peakThresh);
-      if (s.peakMinSep != null) peakMinSepInput.value = String(s.peakMinSep);
-      if (s.showFormants != null) chkFormants.checked = !!(+s.showFormants);
-      if (s.showFormantLines != null) chkFormantLines.checked = !!(+s.showFormantLines);
-    } catch (e) {}
+  function loadSettings(){
+    try{
+      const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return; const s=JSON.parse(raw);
+      if(s.lang) currentLang=s.lang;
+      if(s.fft!=null) selFFT.value=String(s.fft);
+      if(s.smooth!=null){ rngSmooth.value=String(s.smooth); lblSmooth.textContent=(+s.smooth).toFixed(2); }
+      if(s.maxHz!=null) maxHzInput.value=String(s.maxHz);
+      if(s.peakThresh!=null) peakThreshInput.value=String(s.peakThresh);
+      if(s.peakMinSep!=null) peakMinSepInput.value=String(s.peakMinSep);
+      if(s.showFormants!=null) chkFormants.checked=!!(+s.showFormants);
+      if(s.showFormantLines!=null) chkFormantLines.checked=!!(+s.showFormantLines);
+    }catch(e){}
   }
 
-  function setStatus(text) {
-    status.textContent = "Статус: " + text;
+  function applyLang(lang){
+    const t=L[lang]||L.ru;
+    document.documentElement.lang=lang;
+    document.documentElement.dir=(lang==="he")?"rtl":"ltr";
+    title.textContent=t.title;
+    btnStart.innerHTML="▶ "+t.btn_start;
+    btnStop.innerHTML="■ "+t.btn_stop;
+    btnFreeze.textContent=frozen?t.btn_resume:t.btn_freeze;
+    btnSnapshot.textContent=t.btn_snap_png;
+    btnSnapshotHTML.textContent=t.btn_snap_html;
+    btnXLSX.textContent=t.btn_xlsx;
+    status.textContent=t.status_wait;
+    lblFFT.textContent=t.fft_size;
+    lblSmoothTitle.textContent=t.smoothing;
+    lblMaxHz.textContent=t.max_freq;
+    lblThresh.textContent=t.peak_thresh;
+    lblSep.textContent=t.peak_sep;
+    lblShowLabels.textContent=t.labels_on;
+    lblShowLines.textContent=t.lines_on;
+    gridNote.textContent=t.grid_note;
+    document.title=t.title;
   }
 
-  function tzOffsetString(d) {
-    const off = -d.getTimezoneOffset(); // minutes east of UTC
-    const sign = off >= 0 ? "+" : "-";
-    const abs = Math.abs(off);
-    const hh = String(Math.floor(abs/60)).padStart(2,"0");
-    const mm = String(abs%60).padStart(2,"0");
-    return `${sign}${hh}:${mm}`;
+  langSelect.value=currentLang; applyLang(currentLang);
+  langSelect.addEventListener("change", ()=>{ currentLang=langSelect.value; applyLang(currentLang); saveSettings(); render(); });
+
+  function setStatus(text){ status.textContent=text; }
+
+  function tzOffsetString(d){
+    const off=-d.getTimezoneOffset(); const sign=off>=0?"+":"-"; const abs=Math.abs(off);
+    const hh=String(Math.floor(abs/60)).padStart(2,"0"); const mm=String(abs%60).padStart(2,"0"); return `${sign}${hh}:${mm}`;
   }
-  function tsNow() {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,"0");
-    const dd = String(d.getDate()).padStart(2,"0");
-    const hh = String(d.getHours()).padStart(2,"0");
-    const mi = String(d.getMinutes()).padStart(2,"0");
-    const ss = String(d.getSeconds()).padStart(2,"0");
+  function tsNow(){
+    const d=new Date(); const yyyy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,"0"); const dd=String(d.getDate()).padStart(2,"0");
+    const hh=String(d.getHours()).padStart(2,"0"); const mi=String(d.getMinutes()).padStart(2,"0"); const ss=String(d.getSeconds()).padStart(2,"0");
     return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss} (UTC${tzOffsetString(d)})`;
   }
 
-  function hzPerBin() {
-    return sampleRate / analyser.fftSize;
-  }
+  function hzPerBin(){ return sampleRate / analyser.fftSize; }
+  function binForHz(hz){ return Math.min(analyser.frequencyBinCount-1, Math.max(0, Math.round(hz/hzPerBin()))); }
+  function formatHz(v){ return Math.round(v).toString(); }
+  function formatDb(v){ return (Math.round(v*10)/10).toFixed(1); }
 
-  function binForHz(hz) {
-    return Math.min(analyser.frequencyBinCount - 1, Math.max(0, Math.round(hz / hzPerBin())));
+  function niceStep(max, target=8){
+    if(max<=0 || !isFinite(max)) return 1;
+    const raw=max/Math.max(1,target); const pow10=Math.pow(10, Math.floor(Math.log10(raw))); const norm=raw/pow10;
+    let mult=1; if(norm<=1) mult=1; else if(norm<=2) mult=2; else if(norm<=2.5) mult=2.5; else if(norm<=5) mult=5; else mult=10;
+    return mult*pow10;
   }
-
-  function formatHz(v) {
-    return Math.round(v).toString();
-  }
-  function formatDb(v) {
-    return (Math.round(v * 10) / 10).toFixed(1);
-  }
-
-  // ---- Nice ticks for vertical grid ----
-  function niceStep(max, target = 8) {
-    if (max <= 0 || !isFinite(max)) return 1;
-    const raw = max / Math.max(1, target);
-    const pow10 = Math.pow(10, Math.floor(Math.log10(raw)));
-    const norm = raw / pow10;
-    let mult = 1;
-    if (norm <= 1) mult = 1;
-    else if (norm <= 2) mult = 2;
-    else if (norm <= 2.5) mult = 2.5;
-    else if (norm <= 5) mult = 5;
-    else mult = 10;
-    return mult * pow10;
-  }
-  function generateTicks(max, target=8) {
-    const step = niceStep(max, target);
-    const ticks = [];
-    for (let v = 0; v <= max + 1e-9; v += step) ticks.push(Math.round(v));
-    // Ensure last tick is exactly max if it's close
-    if (Math.abs(ticks[ticks.length-1] - max) > step*0.4) ticks.push(Math.round(max));
+  function generateTicks(max, target=8){
+    const step=niceStep(max,target); const ticks=[];
+    for(let v=0; v<=max+1e-9; v+=step) ticks.push(Math.round(v));
+    if(Math.abs(ticks[ticks.length-1]-max)>step*0.4) ticks.push(Math.round(max));
     return {ticks, step};
   }
 
-  async function start() {
-    if (running) return;
-    try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setStatus("браузер не поддерживает getUserMedia (нужен https/локальный сервер и современный браузер)");
-        return;
-      }
-      setStatus("запрашивается доступ к микрофону…");
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
-      const AC = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AC();
-      sampleRate = audioCtx.sampleRate;
-
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = parseInt(selFFT.value, 10);
-      analyser.smoothingTimeConstant = parseFloat(rngSmooth.value);
-      analyser.minDecibels = -120;
-      analyser.maxDecibels = -10;
-
-      const source = audioCtx.createMediaStreamSource(micStream);
-      source.connect(analyser);
-
-      freqData = new Float32Array(analyser.frequencyBinCount);
-      running = true;
-      frozen = false;
-
-      btnStart.disabled = true;
-      btnStop.disabled = false;
-      btnFreeze.disabled = false;
-      btnSnapshot.disabled = false;
-      btnSnapshotHTML.disabled = false;
-      btnXLSX.disabled = false;
-
-      setStatus(`идёт анализ… (дискретизация ${sampleRate} Гц)`);
+  async function start(){
+    if(running) return;
+    try{
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ setStatus(L[currentLang].status_nogum); return startDemo(); }
+      const insecure = (location.protocol!=="https:" && location.hostname!=="localhost" && location.hostname!=="127.0.0.1");
+      if(insecure){ setStatus(L[currentLang].status_insecure); }
+      setStatus(L[currentLang].status_ask);
+      const gum = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false},video:false});
+      const AC = window.AudioContext || window.webkitAudioContext; audioCtx = new AC(); await audioCtx.resume(); sampleRate = audioCtx.sampleRate;
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = parseInt(selFFT.value,10); analyser.smoothingTimeConstant = parseFloat(rngSmooth.value);
+      analyser.minDecibels=-120; analyser.maxDecibels=-10;
+      const source = audioCtx.createMediaStreamSource(gum); source.connect(analyser);
+      micStream = gum; freqData = new Float32Array(analyser.frequencyBinCount); running=true; frozen=false; isDemo=false;
+      btnStart.disabled=true; btnStop.disabled=false; btnFreeze.disabled=false; btnSnapshot.disabled=false; btnSnapshotHTML.disabled=false; btnXLSX.disabled=false;
+      setStatus((L[currentLang].status_running||'').replace('{fs}', sampleRate));
       drawLoop();
-    } catch (err) {
-      console.error(err);
-      setStatus("ошибка доступа к микрофону: " + (err.message || err));
+    }catch(err){
+      console.warn("Mic failed, switching to demo.", err);
+      startDemo(err);
     }
   }
 
-  function stop() {
-    running = false;
-    frozen = false;
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = null;
-    if (micStream) {
-      micStream.getTracks().forEach(t => t.stop());
-      micStream = null;
+  function startDemo(err){
+    if(running) return;
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext; audioCtx = new AC();
+      audioCtx.resume();
+      sampleRate = audioCtx.sampleRate;
+      analyser = audioCtx.createAnalyser(); analyser.fftSize = parseInt(selFFT.value,10); analyser.smoothingTimeConstant = parseFloat(rngSmooth.value);
+      analyser.minDecibels=-120; analyser.maxDecibels=-10;
+      const freqs=[500,1500,2500,3500];
+      demoMute = audioCtx.createGain(); demoMute.gain.value=0.0; demoMute.connect(audioCtx.destination);
+      demoOsc=[];
+      freqs.forEach((f,idx)=>{
+        const osc=audioCtx.createOscillator();
+        osc.type="sine";
+        osc.frequency.value=f*(1+((idx-1.5)*0.002));
+        const g=audioCtx.createGain();
+        g.gain.value=0.2/(idx+1);
+        osc.connect(g);
+        g.connect(analyser);
+        g.connect(demoMute);
+        osc.start();
+        demoOsc.push(osc);
+      });
+      freqData = new Float32Array(analyser.frequencyBinCount); running=true; frozen=false; isDemo=true;
+      btnStart.disabled=true; btnStop.disabled=false; btnFreeze.disabled=false; btnSnapshot.disabled=false; btnSnapshotHTML.disabled=false; btnXLSX.disabled=false;
+      const t=L[currentLang];
+      if(err){
+        const name=(err && err.name)||"";
+        if(name==="NotAllowedError"||name==="PermissionDeniedError") setStatus(t.status_denied+" — "+t.status_demo.replace('{fs}', sampleRate));
+        else if(name==="NotFoundError"||name==="DevicesNotFoundError") setStatus(t.status_notfound+" — "+t.status_demo.replace('{fs}', sampleRate));
+        else if(name==="NotReadableError"||name==="TrackStartError") setStatus(t.status_busy+" — "+t.status_demo.replace('{fs}', sampleRate));
+        else if(name==="SecurityError") setStatus(t.status_insecure+" — "+t.status_demo.replace('{fs}', sampleRate));
+        else setStatus((t.status_generic||"").replace("{msg}", String(err && (err.message||err)))+" — "+t.status_demo.replace('{fs}', sampleRate));
+      } else {
+        setStatus((t.status_demo||"Demo").replace("{fs}", sampleRate));
+      }
+      drawLoop();
+    }catch(e){
+      setStatus((L[currentLang].status_generic||"Error").replace("{msg}", String(e && (e.message||e))));
+      console.error(e);
     }
-    if (audioCtx) {
-      audioCtx.close();
-      audioCtx = null;
-    }
-    btnStart.disabled = false;
-    btnStop.disabled = true;
-    btnFreeze.disabled = true;
-    btnSnapshot.disabled = true;
-    btnSnapshotHTML.disabled = true;
-    btnXLSX.disabled = true;
-    setStatus("остановлено");
   }
 
-  function toggleFreeze() {
-    frozen = !frozen;
-    btnFreeze.textContent = frozen ? "▶ Возобновить" : "⏸️ Заморозить/возобновить";
+  function stop(){
+    running=false; frozen=false; if(rafId) cancelAnimationFrame(rafId); rafId=null;
+    if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; }
+    if(demoOsc && demoOsc.length){ try{ demoOsc.forEach(o=>o.stop()); }catch{} demoOsc=[]; }
+    if(audioCtx){ try{ audioCtx.close(); }catch{} audioCtx=null; }
+    analyser=null; freqData=null; isDemo=false;
+    btnStart.disabled=false; btnStop.disabled=true; btnFreeze.disabled=true; btnSnapshot.disabled=true; btnSnapshotHTML.disabled=true; btnXLSX.disabled=true;
+    setStatus(L[currentLang].status_stopped);
   }
 
-  function updateFFT() {
-    if (analyser) {
-      analyser.fftSize = parseInt(selFFT.value, 10);
-      freqData = new Float32Array(analyser.frequencyBinCount);
-    }
-    saveSettings();
-  }
+  function toggleFreeze(){ frozen=!frozen; btnFreeze.textContent = frozen ? L[currentLang].btn_resume : L[currentLang].btn_freeze; }
 
-  function updateSmooth() {
-    const v = parseFloat(rngSmooth.value);
-    if (analyser) analyser.smoothingTimeConstant = v;
-    lblSmooth.textContent = v.toFixed(2);
-    saveSettings();
-  }
+  function updateFFT(){ if(analyser){ analyser.fftSize=parseInt(selFFT.value,10); freqData=new Float32Array(analyser.frequencyBinCount); } saveSettings(); }
+  function updateSmooth(){ const v=parseFloat(rngSmooth.value); if(analyser) analyser.smoothingTimeConstant=v; lblSmooth.textContent=v.toFixed(2); saveSettings(); }
 
-  // Listeners
   selFFT.addEventListener("change", updateFFT);
   rngSmooth.addEventListener("input", updateSmooth);
-  maxHzInput.addEventListener("change", () => { saveSettings(); });
-  peakThreshInput.addEventListener("change", saveSettings);
-  peakMinSepInput.addEventListener("change", saveSettings);
-  chkFormants.addEventListener("change", saveSettings);
-  chkFormantLines.addEventListener("change", saveSettings);
+  maxHzInput.addEventListener("change", ()=>{ saveSettings(); render(); });
+  peakThreshInput.addEventListener("change", ()=>{ saveSettings(); render(); });
+  peakMinSepInput.addEventListener("change", ()=>{ saveSettings(); render(); });
+  chkFormants.addEventListener("change", ()=>{ saveSettings(); render(); });
+  chkFormantLines.addEventListener("change", ()=>{ saveSettings(); render(); });
 
   btnStart.addEventListener("click", start);
   btnStop.addEventListener("click", stop);
@@ -308,483 +333,277 @@
   btnSnapshotHTML.addEventListener("click", snapshotHTML);
   btnXLSX.addEventListener("click", exportXLSX);
 
-  function drawGrid(x0, y0, w, h, maxHz) {
-    ctx.save();
-    ctx.strokeStyle = "#bbbbbb";
-    ctx.lineWidth = 1;
-
-    // Vertical grid using nice ticks
-    const {ticks} = generateTicks(maxHz, 8);
-    ticks.forEach((f) => {
-      const x = x0 + (f / maxHz) * w;
-      ctx.beginPath();
-      ctx.moveTo(x, y0);
-      ctx.lineTo(x, y0 + h);
-      ctx.stroke();
-
-      // label
-      ctx.fillStyle = "#444";
-      ctx.font = "12px system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(String(f), x, y0 + h + 16);
+  function drawGrid(x0,y0,w,h,maxHz){
+    ctx.save(); ctx.strokeStyle="#bbbbbb"; ctx.lineWidth=1;
+    const {ticks} = generateTicks(maxHz,8);
+    ticks.forEach(f=>{ const x=x0+(f/maxHz)*w; ctx.beginPath(); ctx.moveTo(x,y0); ctx.lineTo(x,y0+h); ctx.stroke();
+      ctx.fillStyle="#444"; ctx.font="12px system-ui, sans-serif"; ctx.textAlign="center"; ctx.fillText(String(f), x, y0+h+16);
     });
-
-    // Horizontal grid: -110 .. -10 dB (10 dB step)
-    const minDb = -110, maxDb = -10, stepDb = 10;
-    for (let d = minDb; d <= maxDb; d += stepDb) {
-      const y = y0 + h - ((d - minDb) / (maxDb - minDb)) * h;
-      ctx.beginPath();
-      ctx.moveTo(x0, y);
-      ctx.lineTo(x0 + w, y);
-      ctx.stroke();
-
-      // label
-      ctx.fillStyle = "#444";
-      ctx.textAlign = "right";
-      ctx.fillText(d.toString(), x0 - 6, y + 4);
-    }
-
-    // Axes
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = 1.5;
-    // X axis
-    ctx.beginPath();
-    ctx.moveTo(x0, y0 + h);
-    ctx.lineTo(x0 + w, y0 + h);
-    ctx.stroke();
-    // Y axis
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x0, y0 + h);
-    ctx.stroke();
-
-    // Titles
-    ctx.fillStyle = "#111";
-    ctx.textAlign = "left";
-    ctx.fillText("Частота, Гц", x0 + 8, y0 + h + 32);
-    ctx.save();
-    ctx.translate(x0 - 32, y0 + 16);
-    ctx.rotate(-Math.PI/2);
-    ctx.fillText("Уровень, дБ", 0, 0);
-    ctx.restore();
-
+    const minDb=-110, maxDb=-10, stepDb=10;
+    for(let d=minDb; d<=maxDb; d+=stepDb){ const y=y0+h-((d-minDb)/(maxDb-minDb))*h; ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x0+w,y); ctx.stroke();
+      ctx.fillStyle="#444"; ctx.textAlign="right"; ctx.fillText(d.toString(), x0-6, y+4); }
+    ctx.strokeStyle="#000"; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(x0,y0+h); ctx.lineTo(x0+w,y0+h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x0,y0+h); ctx.stroke();
+    ctx.fillStyle="#111"; ctx.textAlign="left"; ctx.fillText(L[currentLang].axis_x, x0+8, y0+h+32);
+    ctx.save(); ctx.translate(x0-32,y0+16); ctx.rotate(-Math.PI/2); ctx.fillText(L[currentLang].axis_y,0,0); ctx.restore();
     ctx.restore();
   }
 
-  function detectFormants(peaks, minSepHz) {
-    const chosen = [];
-    for (const p of peaks) {
-      if (chosen.length >= 4) break;
-      let ok = true;
-      for (const c of chosen) {
-        if (Math.abs(c.hz - p.hz) < minSepHz) { ok = false; break; }
-      }
-      if (ok) chosen.push(p);
-    }
-    chosen.sort((a,b) => a.hz - b.hz);
-    return chosen;
+  function detectFormants(peaks,minSepHz){
+    const chosen=[]; for(const p of peaks){ if(chosen.length>=4) break; let ok=true; for(const c of chosen){ if(Math.abs(c.hz+p.hz-2*Math.max(c.hz,p.hz))<minSepHz){ ok=false; break; } } if(ok) chosen.push(p); }
+    chosen.sort((a,b)=>a.hz-b.hz); return chosen;
+  }
+  function pickPeaks(dbArray,maxHz,threshDb){
+    const maxBin=binForHz(maxHz); const peaks=[]; for(let i=2;i<maxBin-2;i++){ const v=dbArray[i]; if(v<threshDb) continue;
+      if(v>dbArray[i-1] && v>dbArray[i+1] && v>dbArray[i-2] && v>dbArray[i+2]) peaks.push({i,db:v,hz:i*hzPerBin()}); }
+    peaks.sort((a,b)=>b.db-a.db); return peaks;
   }
 
-  function pickPeaks(dbArray, maxHz, threshDb) {
-    const maxBin = binForHz(maxHz);
-    const peaks = [];
-    for (let i = 2; i < maxBin - 2; i++) {
-      const v = dbArray[i];
-      if (v < threshDb) continue;
-      if (v > dbArray[i-1] && v > dbArray[i+1] && v > dbArray[i-2] && v > dbArray[i+2]) {
-        peaks.push({ i, db: v, hz: i * hzPerBin() });
-      }
-    }
-    peaks.sort((a,b) => b.db - a.db);
-    return peaks;
-  }
+  function drawLoop(){ if(!running) return; if(!frozen && analyser && freqData){ analyser.getFloatFrequencyData(freqData); } render(); rafId=requestAnimationFrame(drawLoop); }
 
-  function drawLoop() {
-    if (!running) return;
-    if (!frozen) {
-      analyser.getFloatFrequencyData(freqData);
-    }
-    render();
-    rafId = requestAnimationFrame(drawLoop);
-  }
-
-  function render() {
-    const W = canvas.width;
-    const H = canvas.height;
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0,0,W,H);
-
-    // Plot area
-    const margin = { left: 56, right: 16, top: 20, bottom: 46 };
-    const x0 = margin.left, y0 = margin.top;
-    const w = W - margin.left - margin.right;
-    const h = H - margin.top - margin.bottom;
-
-    const maxHz = Math.max(1000, Math.min(parseInt(maxHzInput.value || "4000", 10), Math.floor(sampleRate/2)));
-    drawGrid(x0, y0, w, h, maxHz);
-
-    if (!freqData) return;
-
-    // Draw spectrum
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x0, y0, w, h);
-    ctx.clip();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "#000000";
-    const minDb = -110, maxDb = -10;
-    const maxBin = binForHz(maxHz);
-    for (let i = 0; i < maxBin; i++) {
-      const f = i * hzPerBin();
-      const x = x0 + (f / maxHz) * w;
-      const v = freqData[i];
-      const y = y0 + h - ((v - minDb) / (maxDb - minDb)) * h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.restore();
-
-    // Peaks / Formants
-    const threshDb = parseFloat(peakThreshInput.value || "-70");
-    const minSepHz = parseFloat(peakMinSepInput.value || "150");
-    const peaks = pickPeaks(freqData, maxHz, threshDb);
-    const chosen = detectFormants(peaks, minSepHz);
-
-    // Optional vertical dashed lines at F1..F4
-    if (chkFormantLines.checked && chosen.length) {
-      ctx.save();
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 1;
-      chosen.forEach(p => {
-        const x = x0 + (p.hz / maxHz) * w;
-        ctx.beginPath();
-        ctx.moveTo(x, y0);
-        ctx.lineTo(x, y0 + h);
-        ctx.stroke();
-      });
-      ctx.restore();
-    }
-
-    // Draw selected peaks (markers + labels)
-    ctx.save();
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.textAlign = "center";
-    const labels = ["F1", "F2", "F3", "F4"];
-    chosen.forEach((p, idx) => {
-      const x = x0 + (p.hz / maxHz) * w;
-      const y = y0 + h - ((p.db - (-110)) / (100)) * h;
-      // Tick
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, y0 + h);
-      ctx.lineTo(x, y0 + h - 8);
-      ctx.stroke();
-      // Marker
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI*2);
-      ctx.stroke();
-      // Label
-      if (chkFormants.checked) {
-        const tag = labels[idx] || ("P" + (idx+1));
-        const text = `${tag} ≈ ${formatHz(p.hz)} Гц (${formatDb(p.db)} дБ)`;
-        ctx.fillStyle = "#111";
-        ctx.fillText(text, x, y - 8 - 10*idx);
-      }
-    });
-    ctx.restore();
-
-    // Footer text with timestamp
-    const stamp = tsNow();
-    if (chosen.length) {
-      const s = chosen.map((p, i) => `${["F1","F2","F3","F4"][i] || ("P"+(i+1))}: ${formatHz(p.hz)} Гц`).join(" | ");
-      footText.textContent = `${stamp} — Формантные пики: ${s}.  Порог: ${threshDb} дБ, Мин. разнос: ${minSepHz} Гц, FFT: ${analyser.fftSize}, f_s: ${sampleRate} Гц.`;
+  function render(){
+    const W=canvas.width, H=canvas.height; ctx.clearRect(0,0,W,H); ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    const margin={left:56,right:16,top:20,bottom:46}; const x0=margin.left,y0=margin.top,w=W-margin.left-margin.right,h=H-margin.top-margin.bottom;
+    const maxHz=Math.max(1000, Math.min(parseInt(maxHzInput.value||"4000",10), Math.floor(sampleRate/2))); drawGrid(x0,y0,w,h,maxHz);
+    if(!freqData) return;
+    ctx.save(); ctx.beginPath(); ctx.rect(x0,y0,w,h); ctx.clip(); ctx.lineWidth=1; ctx.strokeStyle="#000";
+    const minDb=-110, maxDb=-10; const maxBin=binForHz(maxHz);
+    for(let i=0;i<maxBin;i++){ const f=i*hzPerBin(); const x=x0+(f/maxHz)*w; const v=freqData[i]; const y=y0+h-((v-minDb)/(maxDb-minDb))*h; if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke(); ctx.restore();
+    const threshDb=parseFloat(peakThreshInput.value||"-70"); const minSepHz=parseFloat(peakMinSepInput.value||"150");
+    const peaks=pickPeaks(freqData,maxHz,threshDb); const chosen=detectFormants(peaks,minSepHz);
+    if(chkFormantLines.checked && chosen.length){ ctx.save(); ctx.setLineDash([6,4]); ctx.strokeStyle="#000"; ctx.lineWidth=1;
+      chosen.forEach(p=>{ const x=x0+(p.hz/maxHz)*w; ctx.beginPath(); ctx.moveTo(x,y0); ctx.lineTo(x,y0+h); ctx.stroke(); }); ctx.restore(); }
+    ctx.save(); ctx.font="12px system-ui, sans-serif"; ctx.textAlign="center"; const labels=L[currentLang].labels||["F1","F2","F3","F4"];
+    const unitHz=L[currentLang].unit_hz||"Hz"; const unitDb=L[currentLang].unit_db||"dB";
+    chosen.forEach((p,idx)=>{ const x=x0+(p.hz/maxHz)*w; const y=y0+h-((p.db-(-110))/(100))*h; ctx.strokeStyle="#000"; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x,y0+h); ctx.lineTo(x,y0+h-8); ctx.stroke(); ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.stroke();
+      if(chkFormants.checked){ const tag=labels[idx]||("P"+(idx+1)); const text=`${tag} ≈ ${formatHz(p.hz)} ${unitHz} (${formatDb(p.db)} ${unitDb})`; ctx.fillStyle="#111"; ctx.fillText(text,x,y-8-10*idx); }
+    }); ctx.restore();
+    const stamp=tsNow();
+    if(chosen.length){ const s=chosen.map((p,i)=>`${(L[currentLang].labels||["F1","F2","F3","F4"])[i]||("P"+(i+1))}: ${formatHz(p.hz)} ${unitHz}`).join(" | ");
+      footText.textContent = `${stamp} — ` + (L[currentLang].peaks_found||"").replace("{list}", s).replace("{th}", threshDb).replace("{sep}", minSepHz).replace("{fft}", analyser?analyser.fftSize:parseInt(selFFT.value,10)).replace("{fs}", sampleRate);
     } else {
-      footText.textContent = `${stamp} — Пики не обнаружены (увеличьте громкость, уменьшите порог или диапазон частот). FFT: ${analyser.fftSize}, f_s: ${sampleRate} Гц.`;
+      footText.textContent = `${stamp} — ` + (L[currentLang].no_peaks||"").replace("{fft}", analyser?analyser.fftSize:parseInt(selFFT.value,10)).replace("{fs}", sampleRate);
     }
   }
 
-  function buildComposedCanvasWithFooter() {
-    const dpr = window.devicePixelRatio || 1;
-    const srcW = canvas.width;
-    const srcH = canvas.height;
-    const footerH = Math.round(36 * dpr);
-    const out = document.createElement("canvas");
-    out.width = srcW;
-    out.height = srcH + footerH;
-    const octx = out.getContext("2d");
-    octx.fillStyle = "#ffffff";
-    octx.fillRect(0,0,out.width,out.height);
-    octx.drawImage(canvas, 0, 0);
-    octx.fillStyle = "#111111";
-    octx.font = `${Math.round(12 * dpr)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
-    octx.textBaseline = "middle";
-    const text = (document.getElementById("footText")?.textContent || "").trim();
-    const leftPad = Math.round(10 * dpr);
-    const y = srcH + Math.round(footerH/2);
-    const maxWidth = out.width - leftPad*2;
-    const words = text.split(" ");
-    const lines = [];
-    let current = "";
-    for (let i = 0; i < words.length; i++) {
-      const trial = current ? (current + " " + words[i]) : words[i];
-      if (octx.measureText(trial).width <= maxWidth) {
-        current = trial;
-      } else {
-        if (current) lines.push(current);
-        current = words[i];
-      }
-    }
-    if (current) lines.push(current);
-    const lineH = Math.round(16 * dpr);
-    const startY = y - Math.round(((lines.length-1) * lineH)/2);
-    lines.forEach((ln, k) => {
-      octx.fillText(ln, leftPad, startY + k*lineH);
-    });
+  function buildComposedCanvasWithFooter(){
+    const dpr=window.devicePixelRatio||1; const srcW=canvas.width, srcH=canvas.height, footerH=Math.round(36*dpr);
+    const out=document.createElement("canvas"); out.width=srcW; out.height=srcH+footerH; const octx=out.getContext("2d");
+    octx.fillStyle="#ffffff"; octx.fillRect(0,0,out.width,out.height); octx.drawImage(canvas,0,0);
+    octx.fillStyle="#111111"; octx.font=`${Math.round(12*dpr)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`; octx.textBaseline="middle";
+    const text=(document.getElementById("footText")?.textContent||"").trim(); const leftPad=Math.round(10*dpr); const y=srcH+Math.round(footerH/2);
+    const maxWidth=out.width-leftPad*2; const words=text.split(" "); const lines=[]; let current="";
+    for(let i=0;i<words.length;i++){ const trial=current?(current+" "+words[i]):words[i]; if(octx.measureText(trial).width<=maxWidth) current=trial; else { if(current) lines.push(current); current=words[i]; } }
+    if(current) lines.push(current); const lineH=Math.round(16*dpr); const startY=y-Math.round(((lines.length-1)*lineH)/2);
+    lines.forEach((ln,k)=>{ octx.fillText(ln, leftPad, startY + k*lineH); });
     return out;
   }
 
-  function snapshotPNG() {
-    const out = buildComposedCanvasWithFooter();
-    const link = document.createElement("a");
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    link.download = `voice_spectrum_${ts}.png`;
-    link.href = out.toDataURL("image/png");
-    link.click();
+  function snapshotPNG(){
+    const out=buildComposedCanvasWithFooter(); const link=document.createElement("a"); const ts=new Date().toISOString().replace(/[:.]/g,"-");
+    link.download=`voice_spectrum_${currentLang}_${ts}.png`; link.href=out.toDataURL("image/png"); link.click();
   }
-
-  function snapshotHTML() {
-    const out = buildComposedCanvasWithFooter();
-    const imgData = out.toDataURL("image/png");
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    const fftVal = analyser ? analyser.fftSize : (parseInt(selFFT.value,10)||4096);
-    const smoothVal = parseFloat(rngSmooth.value || "0").toFixed(2);
-    const maxHzVal = parseInt(maxHzInput.value || "4000", 10);
-    const threshVal = parseFloat(peakThreshInput.value || "-70");
-    const sepVal = parseFloat(peakMinSepInput.value || "150");
-    const formantsOn = !!chkFormants.checked;
-    const linesOn = !!chkFormantLines.checked;
-
+  function snapshotHTML(){
+    const out=buildComposedCanvasWithFooter(); const imgData=out.toDataURL("image/png"); const ts=new Date().toISOString().replace(/[:.]/g,"-");
+    const t=L[currentLang]; const fftVal=analyser?analyser.fftSize:(parseInt(selFFT.value,10)||4096);
+    const smoothVal=parseFloat(rngSmooth.value||"0").toFixed(2); const maxHzVal=parseInt(maxHzInput.value||"4000",10);
+    const threshVal=parseFloat(peakThreshInput.value||"-70"); const sepVal=parseFloat(peakMinSepInput.value||"150");
+    const formantsOn=!!chkFormants.checked; const linesOn=!!chkFormantLines.checked;
     const doc = [
-      "<!DOCTYPE html>",
-      "<html lang=\"ru\">",
-      "<head>",
-      "<meta charset=\"UTF-8\" />",
-      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />",
-      "<title>Снимок спектра голоса</title>",
-      "<style>",
+      "<!DOCTYPE html>","<html lang=\"",currentLang,"\">","<head>","<meta charset=\"UTF-8\" />","<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />",
+      "<title>", t.snapshot_title ,"</title>","<style>",
       "body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,'Noto Sans','Helvetica Neue',sans-serif;margin:0;padding:16px;background:#fff;color:#111}",
       "img{max-width:100%;height:auto;border:1px solid #ddd;border-radius:12px;}",
       "h1{font-size:20px;margin:0 0 8px 0;}",
       "code,pre{background:#f7f7f7;border:1px solid #eee;border-radius:8px;padding:8px 10px;display:block;white-space:pre-wrap;}",
-      ".meta{font-size:14px;color:#333;margin:8px 0;}",
-      "</style>",
-      "</head>",
-      "<body>",
-      "<h1>Снимок спектра голоса</h1>",
-      "<img alt=\"Снимок спектра\" src=\"", imgData, "\" />",
-      "<h2 style=\"font-size:16px;margin-top:16px;\">Параметры</h2>",
-      "<pre>",
+      ".meta{font-size:14px;color:#333;margin:8px 0;}", "</style>","</head>","<body>",
+      "<h1>", t.snapshot_title ,"</h1>","<img alt=\"snapshot\" src=\"", imgData ,"\" />",
+      "<h2 style=\"font-size:16px;margin-top:16px;\">", t.snapshot_params ,"</h2>","<pre>",
       "FFT: ", String(fftVal), "\n",
-      "Сглаживание: ", String(smoothVal), "\n",
-      "Макс. частота: ", String(maxHzVal), " Гц\n",
-      "Порог пиков: ", String(threshVal), " дБ\n",
-      "Мин. разнос пиков: ", String(sepVal), " Гц\n",
-      "Подписи формантов: ", (formantsOn ? "включены" : "выключены"), "\n",
-      "Вертикальные границы: ", (linesOn ? "включены (штриховые)" : "выключены"), "\n",
-      "</pre>",
-      "<div class=\"meta\">Источник: локальная запись с микрофона; файл самодостаточен, сгенерирован ", new Date().toLocaleString(), ".</div>",
-      "</body>",
-      "</html>"
+      t.smoothing, " ", String(smoothVal), "\n",
+      t.max_freq, " ", String(maxHzVal), " ", (L[currentLang].unit_hz||"Hz"), "\n",
+      t.peak_thresh, " ", String(threshVal), " ", (L[currentLang].unit_db||"dB"), "\n",
+      t.peak_sep, " ", String(sepVal), " ", (L[currentLang].unit_hz||"Hz"), "\n",
+      (formantsOn ? "F1–F4 labels: ON" : "F1–F4 labels: OFF"), "\n",
+      (linesOn ? "Formant boundaries: ON (dashed)" : "Formant boundaries: OFF"), "\n",
+      "</pre>","<div class=\"meta\">", t.snapshot_meta , new Date().toLocaleString() ,".</div>","</body>","</html>"
     ].join("");
 
-    const blob = new Blob([doc], {type: "text/html"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `voice_spectrum_snapshot_${ts}.html`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const blob=new Blob([doc],{type:"text/html"}); const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=`voice_spectrum_snapshot_${currentLang}_${ts}.html`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
   }
 
-  // ---------- XLSX export (no external libs) ----------
-  function crc32(buf) {
-    let c = ~0;
-    for (let i = 0; i < buf.length; i++) {
-      c ^= buf[i];
-      for (let k = 0; k < 8; k++) {
-        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-      }
-    }
-    return ~c >>> 0;
-  }
-  function dosDateTime(d=new Date()) {
-    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | ((d.getSeconds()/2) & 0x1F);
-    const date = (((d.getFullYear()-1980) & 0x7F) << 9) | ((d.getMonth()+1) << 5) | (d.getDate());
-    return {time, date};
-  }
-  function le16(n) { const b = new Uint8Array(2); const v = new DataView(b.buffer); v.setUint16(0, n, true); return b; }
-  function le32(n) { const b = new Uint8Array(4); const v = new DataView(b.buffer); v.setUint32(0, n, true); return b; }
-  function concatUint8(chunks) { let len = 0; chunks.forEach(c => len += c.length); const out = new Uint8Array(len); let off = 0; chunks.forEach(c => { out.set(c, off); off += c.length; }); return out; }
-  function strBytes(s) { return new TextEncoder().encode(s); }
-  function xmlEscape(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  // --- XLSX: robust minimal package (docProps + styles) ---
+  function crc32(buf){ let c=~0>>>0; for(let i=0;i<buf.length;i++){ c^=buf[i]; for(let k=0;k<8;k++){ c=(c>>>1) ^ (0xEDB88320 & (-(c & 1))); } } return (~c)>>>0; }
+  function dosDateTime(d=new Date()){ const time=(d.getHours()<<11)|(d.getMinutes()<<5)|((d.getSeconds()/2)&0x1F); const date=(((d.getFullYear()-1980)&0x7F)<<9)|((d.getMonth()+1)<<5)|(d.getDate()); return {time,date}; }
+  const le16 = n => { const b=new Uint8Array(2); new DataView(b.buffer).setUint16(0,n,true); return b; };
+  const le32 = n => { const b=new Uint8Array(4); new DataView(b.buffer).setUint32(0,n,true); return b; };
+  const strBytes = s => new TextEncoder().encode(s);
+  function concatUint8(parts){ let len=0; parts.forEach(p=>len+=p.length); const out=new Uint8Array(len); let o=0; parts.forEach(p=>{ out.set(p,o); o+=p.length; }); return out; }
 
-  function makeZip(files) {
-    const now = dosDateTime(new Date());
-    const localChunks = []; const centralChunks = []; let offset = 0;
-    files.forEach(file => {
-      const nameBytes = strBytes(file.name);
-      const data = file.bytes;
-      const crc = crc32(data);
-      const compMethod = 0;
-      const compData = data;
-      const lh = [
+  function zipMake(files){
+    // files: [{name, bytes}]
+    const now=dosDateTime(new Date());
+    const locals=[], centrals=[]; let offset=0;
+    for(const file of files){
+      const nameB=strBytes(file.name);
+      const data=file.bytes;
+      const crc=crc32(data);
+      const compMethod=0; // no compression
+      const gpflag=0;
+      const versionNeeded=20;   // 2.0
+      const versionMade=20;     // 2.0 (MS-DOS)
+      const local = concatUint8([
         strBytes("PK\x03\x04"),
-        le16(20),
-        le16(0),
+        le16(versionNeeded),
+        le16(gpflag),
         le16(compMethod),
-        le16(now.time),
-        le16(now.date),
-        le32(crc),
-        le32(compData.length),
-        le32(data.length),
-        le16(nameBytes.length),
-        le16(0),
-        nameBytes,
-        compData
-      ];
-      const local = concatUint8(lh);
-      localChunks.push(local);
-
-      const ch = [
-        strBytes("PK\x01\x02"),
-        le16(0x031E),
-        le16(20),
-        le16(0), le16(compMethod),
         le16(now.time), le16(now.date),
-        le32(crc), le32(compData.length), le32(data.length),
-        le16(nameBytes.length), le16(0), le16(0),
-        le16(0), le16(0), le32(0),
-        le32(offset),
-        nameBytes
-      ];
-      const central = concatUint8(ch);
-      centralChunks.push(central);
-
-      offset += local.length;
-    });
-    const cd = concatUint8(centralChunks);
+        le32(crc),
+        le32(data.length), le32(data.length),
+        le16(nameB.length), le16(0),
+        nameB, data
+      ]);
+      locals.push(local);
+      const central = concatUint8([
+        strBytes("PK\x01\x02"),
+        le16(versionMade),
+        le16(versionNeeded),
+        le16(gpflag),
+        le16(compMethod),
+        le16(now.time), le16(now.date),
+        le32(crc),
+        le32(data.length), le32(data.length),
+        le16(nameB.length), le16(0),
+        le16(0), le16(0), le16(0),
+        le32(0), le32(offset),
+        nameB
+      ]);
+      centrals.push(central);
+      offset+=local.length;
+    }
+    const cd=concatUint8(centrals);
     const eocd = concatUint8([
       strBytes("PK\x05\x06"),
       le16(0), le16(0),
       le16(files.length), le16(files.length),
-      le32(cd.length),
-      le32(offset),
+      le32(cd.length), le32(offset),
       le16(0)
     ]);
-    return new Blob([concatUint8([...localChunks, cd, eocd])], {type: "application/zip"});
+    return new Blob([concatUint8([...locals, cd, eocd])], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   }
 
-  function buildSheetXML(rows) {
-    const colName = (n) => {
-      let s = ""; n = Math.max(1,n);
-      while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1)/26); }
-      return s;
-    };
-    let r = 1;
-    let xml = ['<?xml version="1.0" encoding="UTF-8"?>','<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">','<sheetData>'];
-    rows.forEach(row => {
-      xml.push(`<row r="${r}">`);
-      for (let c = 0; c < row.length; c++) {
-        const v = row[c];
-        const cellRef = colName(c+1) + r;
-        if (typeof v === "number" && isFinite(v)) {
-          xml.push(`<c r="${cellRef}"><v>${v}</v></c>`);
-        } else {
-          const s = xmlEscape(String(v));
-          xml.push(`<c r="${cellRef}" t="inlineStr"><is><t>${s}</t></is></c>`);
-        }
-      }
-      xml.push(`</row>`);
-      r++;
-    });
-    xml.push('</sheetData></worksheet>');
-    return xml.join("");
+  function buildSheetXML(rows){
+    function colName(n){ let s=""; n=Math.max(1,n); while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
+    let r=1; const xml=['<?xml version="1.0" encoding="UTF-8"?>','<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">','<sheetData>'];
+    rows.forEach(row=>{ xml.push(`<row r="${r}">`); for(let c=0;c<row.length;c++){ const v=row[c]; const cellRef=colName(c+1)+r;
+      if(typeof v==="number" && isFinite(v)) xml.push(`<c r="${cellRef}"><v>${v}</v></c>`);
+      else xml.push(`<c r="${cellRef}" t="inlineStr"><is><t>${String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</t></is></c>`);
+    } xml.push(`</row>`); r++; }); xml.push('</sheetData></worksheet>'); return xml.join(""); }
+
+  function exportXLSX(){
+    if(!freqData || !analyser) return; 
+    const maxHz=Math.max(1000, Math.min(parseInt(maxHzInput.value||"4000",10), Math.floor(sampleRate/2)));
+    const maxBin=binForHz(maxHz); const rows=[["freq_hz","level_db"]];
+    for(let i=0;i<maxBin;i++){ const hz=i*hzPerBin(); const db=freqData[i]; rows.push([+hz.toFixed(1), +db.toFixed(2)]); }
+
+    // Build all XML parts
+    const contentTypes = '<?xml version="1.0" encoding="UTF-8"?>'
+      +'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      +'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Default Extension="xml" ContentType="application/xml"/>'
+      +'<Override PartName="/_rels/.rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+      +'<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
+      +'<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'
+      +'<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      +'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+      +'<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+      +'</Types>';
+
+    const relsRoot = '<?xml version="1.0" encoding="UTF-8"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      +'</Relationships>';
+
+    const appXml = '<?xml version="1.0" encoding="UTF-8"?>'
+      +'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" '
+      +'xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+      +'<Application>ChatGPT Export</Application>'
+      +'<DocSecurity>0</DocSecurity>'
+      +'<ScaleCrop>false</ScaleCrop>'
+      +'<HeadingPairs><vt:vector size="2" baseType="variant"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4></vt:variant></vt:vector></HeadingPairs>'
+      +'<TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>spectrum</vt:lpstr></vt:vector></TitlesOfParts>'
+      +'</Properties>';
+
+    const coreXml = '<?xml version="1.0" encoding="UTF-8"?>'
+      +'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" '
+      +'xmlns:dc="http://purl.org/dc/elements/1.1/" '
+      +'xmlns:dcterms="http://purl.org/dc/terms/" '
+      +'xmlns:dcmitype="http://purl.org/dc/dcmitype/" '
+      +'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+      +'<dc:title>voice spectrum</dc:title>'
+      +'<dc:creator>ChatGPT</dc:creator>'
+      +'<cp:lastModifiedBy>ChatGPT</cp:lastModifiedBy>'
+      +'<dcterms:created xsi:type="dcterms:W3CDTF">'+new Date().toISOString()+'</dcterms:created>'
+      +'<dcterms:modified xsi:type="dcterms:W3CDTF">'+new Date().toISOString()+'</dcterms:modified>'
+      +'</cp:coreProperties>';
+
+    const workbookXml = '<?xml version="1.0" encoding="UTF-8"?>'
+      +'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      +'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+      +'<sheets><sheet name="spectrum" sheetId="1" r:id="rId1"/></sheets>'
+      +'</workbook>';
+
+    const workbookRels = '<?xml version="1.0" encoding="UTF-8"?>'
+      +'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      +'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+      +'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+      +'</Relationships>';
+
+    const stylesXml = '<?xml version="1.0" encoding="UTF-8"?>'
+      +'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      +'<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>'
+      +'<fills count="1"><fill><patternFill patternType="none"/></fill></fills>'
+      +'<borders count="1"><border/></borders>'
+      +'<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+      +'<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="0"/></cellXfs>'
+      +'</styleSheet>';
+
+    const sheet1Xml = buildSheetXML(rows);
+
+    const files = [
+      {name:"[Content_Types].xml", bytes:strBytes(contentTypes)},
+      {name:"_rels/.rels", bytes:strBytes(relsRoot)},
+      {name:"docProps/app.xml", bytes:strBytes(appXml)},
+      {name:"docProps/core.xml", bytes:strBytes(coreXml)},
+      {name:"xl/workbook.xml", bytes:strBytes(workbookXml)},
+      {name:"xl/_rels/workbook.xml.rels", bytes:strBytes(workbookRels)},
+      {name:"xl/styles.xml", bytes:strBytes(stylesXml)},
+      {name:"xl/worksheets/sheet1.xml", bytes:strBytes(sheet1Xml)}
+    ];
+
+    const zipBlob = zipMake(files);
+    const ts=new Date().toISOString().replace(/[:.]/g,"-");
+    const a=document.createElement("a"); a.href=URL.createObjectURL(zipBlob);
+    a.download=`voice_spectrum_${currentLang}_${ts}.xlsx`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   }
 
-  function exportXLSX() {
-    if (!freqData || !analyser) return;
-    const maxHz = Math.max(1000, Math.min(parseInt(maxHzInput.value || "4000", 10), Math.floor(sampleRate/2)));
-    const maxBin = binForHz(maxHz);
-    const rows = [["freq_hz", "level_db"]];
-    for (let i = 0; i < maxBin; i++) {
-      const hz = i * hzPerBin();
-      const db = freqData[i];
-      rows.push([+hz.toFixed(1), +db.toFixed(2)]);
-    }
-
-    const files = [];
-    files.push({name: "[Content_Types].xml", bytes: strBytes(
-      '<?xml version="1.0" encoding="UTF-8"?>' +
-      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
-      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
-      '<Default Extension="xml" ContentType="application/xml"/>' +
-      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
-      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
-      '</Types>'
-    )});
-    files.push({name: "_rels/.rels", bytes: strBytes(
-      '<?xml version="1.0" encoding="UTF-8"?>' +
-      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
-      '</Relationships>'
-    )});
-    files.push({name: "xl/workbook.xml", bytes: strBytes(
-      '<?xml version="1.0" encoding="UTF-8"?>' +
-      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
-      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-      '<sheets><sheet name="spectrum" sheetId="1" r:id="rId1"/></sheets>' +
-      '</workbook>'
-    )});
-    files.push({name: "xl/_rels/workbook.xml.rels", bytes: strBytes(
-      '<?xml version="1.0" encoding="UTF-8"?>' +
-      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
-      '</Relationships>'
-    )});
-    const sheetXml = buildSheetXML(rows);
-    files.push({name: "xl/worksheets/sheet1.xml", bytes: strBytes(sheetXml)});
-
-    const zipBlob = makeZip(files);
-    const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(zipBlob);
-    a.download = `voice_spectrum_${ts}.xlsx`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  function resizeCanvasToDisplaySize(){
+    const dpr=window.devicePixelRatio||1; const rect=canvas.getBoundingClientRect(); const width=rect.width, height=rect.height;
+    if(canvas.width!==Math.round(width*dpr) || canvas.height!==Math.round(height*dpr)){ canvas.width=Math.round(width*dpr); canvas.height=Math.round(height*dpr); }
   }
+  const resizeObserver=new ResizeObserver(()=>{ resizeCanvasToDisplaySize(); render(); }); resizeObserver.observe(canvas);
 
-  // HiDPI fix
-  function resizeCanvasToDisplaySize() {
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    const { width, height } = rect;
-    if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-    }
-  }
-  const resizeObserver = new ResizeObserver(() => { resizeCanvasToDisplaySize(); });
-  resizeObserver.observe(canvas);
+  loadSettings(); langSelect.value=currentLang; applyLang(currentLang); lblSmooth.textContent=parseFloat(rngSmooth.value).toFixed(2);
+  resizeCanvasToDisplaySize(); setStatus(L[currentLang].status_wait);
+  render();
 
-  // Initial
-  loadSettings();
-  lblSmooth.textContent = parseFloat(rngSmooth.value).toFixed(2);
-  resizeCanvasToDisplaySize();
-  setStatus("готов к запуску");
+  [selFFT,rngSmooth,maxHzInput,peakThreshInput,peakMinSepInput,chkFormants,chkFormantLines].forEach(el=>el.addEventListener("input", render));
 })();
 </script>
 </body>
