@@ -10,9 +10,6 @@
     --fg: #111111;
     --muted: #666666;
     --accent: #000000;
-    --good: #0a7d0a;
-    --warn: #c77d00;
-    --bad: #b00020;
     --grid: #bbbbbb;
   }
   html, body { height: 100%; }
@@ -52,7 +49,8 @@
       <span class="spacer"></span>
       <button id="btnFreeze" class="secondary" disabled>⏸️ Заморозить/возобновить</button>
       <button id="btnSnapshot" class="secondary" disabled>📸 Снимок PNG</button>
-      <button id="btnCSV" class="secondary" disabled>⬇ Экспорт CSV</button>
+      <button id="btnSnapshotHTML" class="secondary" disabled>📄 Снимок HTML</button>
+      <button id="btnXLSX" class="secondary" disabled>⬇ Экспорт XLSX</button>
     </div>
     <div class="hr"></div>
     <div class="flex">
@@ -77,9 +75,10 @@
       <label for="peakMinSep">Мин. разнос (Гц):</label>
       <input id="peakMinSep" type="number" step="10" value="150" style="width:80px;">
 
-      <label><input id="chkFormants" type="checkbox" checked> Показывать F1–F4</label>
+      <label><input id="chkFormants" type="checkbox" checked> Подписи F1–F4</label>
+      <label><input id="chkFormantLines" type="checkbox" checked> Границы F1–F4 (штриховые)</label>
     </div>
-    <div class="grid-note">Оси: горизонталь — частота (Гц), вертикаль — уровень (дБ). Фон — белый, линии — чёрные, сетка — серая.</div>
+    <div class="grid-note">Оси: горизонталь — частота (Гц), вертикаль — уровень (дБ). Вертикальные линии сетки подстраиваются под выбранный предел частоты.</div>
   </div>
 
   <div class="panel">
@@ -95,7 +94,6 @@
   let micStream = null;
   let rafId = null;
   let frozen = false;
-  let fftSize = 4096;
   let sampleRate = 48000; // will be replaced by real audioCtx.sampleRate
   let freqData = null; // Float32Array in dB
   let running = false;
@@ -106,7 +104,8 @@
   const btnStop = $("#btnStop");
   const btnFreeze = $("#btnFreeze");
   const btnSnapshot = $("#btnSnapshot");
-  const btnCSV = $("#btnCSV");
+  const btnSnapshotHTML = $("#btnSnapshotHTML");
+  const btnXLSX = $("#btnXLSX");
   const status = $("#status");
   const canvas = $("#canvas");
   const ctx = canvas.getContext("2d");
@@ -117,10 +116,59 @@
   const peakThreshInput = $("#peakThresh");
   const peakMinSepInput = $("#peakMinSep");
   const chkFormants = $("#chkFormants");
+  const chkFormantLines = $("#chkFormantLines");
   const footText = $("#footText");
+
+  // ---- Persistence ----
+  const STORAGE_KEY = "voice_spectrum_settings_v2"; // includes formant lines toggle
+  function saveSettings() {
+    const s = {
+      fft: selFFT.value,
+      smooth: rngSmooth.value,
+      maxHz: maxHzInput.value,
+      peakThresh: peakThreshInput.value,
+      peakMinSep: peakMinSepInput.value,
+      showFormants: chkFormants.checked ? 1 : 0,
+      showFormantLines: chkFormantLines.checked ? 1 : 0,
+    };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (s.fft != null) selFFT.value = String(s.fft);
+      if (s.smooth != null) { rngSmooth.value = String(s.smooth); lblSmooth.textContent = (+s.smooth).toFixed(2); }
+      if (s.maxHz != null) maxHzInput.value = String(s.maxHz);
+      if (s.peakThresh != null) peakThreshInput.value = String(s.peakThresh);
+      if (s.peakMinSep != null) peakMinSepInput.value = String(s.peakMinSep);
+      if (s.showFormants != null) chkFormants.checked = !!(+s.showFormants);
+      if (s.showFormantLines != null) chkFormantLines.checked = !!(+s.showFormantLines);
+    } catch (e) {}
+  }
 
   function setStatus(text) {
     status.textContent = "Статус: " + text;
+  }
+
+  function tzOffsetString(d) {
+    const off = -d.getTimezoneOffset(); // minutes east of UTC
+    const sign = off >= 0 ? "+" : "-";
+    const abs = Math.abs(off);
+    const hh = String(Math.floor(abs/60)).padStart(2,"0");
+    const mm = String(abs%60).padStart(2,"0");
+    return `${sign}${hh}:${mm}`;
+  }
+  function tsNow() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const dd = String(d.getDate()).padStart(2,"0");
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mi = String(d.getMinutes()).padStart(2,"0");
+    const ss = String(d.getSeconds()).padStart(2,"0");
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss} (UTC${tzOffsetString(d)})`;
   }
 
   function hzPerBin() {
@@ -138,12 +186,40 @@
     return (Math.round(v * 10) / 10).toFixed(1);
   }
 
+  // ---- Nice ticks for vertical grid ----
+  function niceStep(max, target = 8) {
+    if (max <= 0 || !isFinite(max)) return 1;
+    const raw = max / Math.max(1, target);
+    const pow10 = Math.pow(10, Math.floor(Math.log10(raw)));
+    const norm = raw / pow10;
+    let mult = 1;
+    if (norm <= 1) mult = 1;
+    else if (norm <= 2) mult = 2;
+    else if (norm <= 2.5) mult = 2.5;
+    else if (norm <= 5) mult = 5;
+    else mult = 10;
+    return mult * pow10;
+  }
+  function generateTicks(max, target=8) {
+    const step = niceStep(max, target);
+    const ticks = [];
+    for (let v = 0; v <= max + 1e-9; v += step) ticks.push(Math.round(v));
+    // Ensure last tick is exactly max if it's close
+    if (Math.abs(ticks[ticks.length-1] - max) > step*0.4) ticks.push(Math.round(max));
+    return {ticks, step};
+  }
+
   async function start() {
     if (running) return;
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus("браузер не поддерживает getUserMedia (нужен https/локальный сервер и современный браузер)");
+        return;
+      }
       setStatus("запрашивается доступ к микрофону…");
       micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AC();
       sampleRate = audioCtx.sampleRate;
 
       analyser = audioCtx.createAnalyser();
@@ -163,7 +239,8 @@
       btnStop.disabled = false;
       btnFreeze.disabled = false;
       btnSnapshot.disabled = false;
-      btnCSV.disabled = false;
+      btnSnapshotHTML.disabled = false;
+      btnXLSX.disabled = false;
 
       setStatus(`идёт анализ… (дискретизация ${sampleRate} Гц)`);
       drawLoop();
@@ -190,7 +267,8 @@
     btnStop.disabled = true;
     btnFreeze.disabled = true;
     btnSnapshot.disabled = true;
-    btnCSV.disabled = true;
+    btnSnapshotHTML.disabled = true;
+    btnXLSX.disabled = true;
     setStatus("остановлено");
   }
 
@@ -200,39 +278,44 @@
   }
 
   function updateFFT() {
-    if (!analyser) return;
-    analyser.fftSize = parseInt(selFFT.value, 10);
-    freqData = new Float32Array(analyser.frequencyBinCount);
+    if (analyser) {
+      analyser.fftSize = parseInt(selFFT.value, 10);
+      freqData = new Float32Array(analyser.frequencyBinCount);
+    }
+    saveSettings();
   }
 
   function updateSmooth() {
-    if (!analyser) return;
     const v = parseFloat(rngSmooth.value);
-    analyser.smoothingTimeConstant = v;
+    if (analyser) analyser.smoothingTimeConstant = v;
     lblSmooth.textContent = v.toFixed(2);
+    saveSettings();
   }
 
-  selFFT.addEventListener("change", () => updateFFT());
-  rngSmooth.addEventListener("input", () => updateSmooth());
-  maxHzInput.addEventListener("change", () => {/* live redraw */});
-  peakThreshInput.addEventListener("change", () => {/* live redraw */});
-  peakMinSepInput.addEventListener("change", () => {/* live redraw */});
-  chkFormants.addEventListener("change", () => {/* live redraw */});
+  // Listeners
+  selFFT.addEventListener("change", updateFFT);
+  rngSmooth.addEventListener("input", updateSmooth);
+  maxHzInput.addEventListener("change", () => { saveSettings(); });
+  peakThreshInput.addEventListener("change", saveSettings);
+  peakMinSepInput.addEventListener("change", saveSettings);
+  chkFormants.addEventListener("change", saveSettings);
+  chkFormantLines.addEventListener("change", saveSettings);
 
   btnStart.addEventListener("click", start);
   btnStop.addEventListener("click", stop);
   btnFreeze.addEventListener("click", toggleFreeze);
   btnSnapshot.addEventListener("click", snapshotPNG);
-  btnCSV.addEventListener("click", exportCSV);
+  btnSnapshotHTML.addEventListener("click", snapshotHTML);
+  btnXLSX.addEventListener("click", exportXLSX);
 
   function drawGrid(x0, y0, w, h, maxHz) {
     ctx.save();
     ctx.strokeStyle = "#bbbbbb";
     ctx.lineWidth = 1;
 
-    // Vertical grid: 0, 500, 1000, ... up to maxHz
-    const stepHz = 500;
-    for (let f = 0; f <= maxHz; f += stepHz) {
+    // Vertical grid using nice ticks
+    const {ticks} = generateTicks(maxHz, 8);
+    ticks.forEach((f) => {
       const x = x0 + (f / maxHz) * w;
       ctx.beginPath();
       ctx.moveTo(x, y0);
@@ -243,10 +326,10 @@
       ctx.fillStyle = "#444";
       ctx.font = "12px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(f.toString(), x, y0 + h + 16);
-    }
+      ctx.fillText(String(f), x, y0 + h + 16);
+    });
 
-    // Horizontal grid: -100 .. 0 dB (10 dB step)
+    // Horizontal grid: -110 .. -10 dB (10 dB step)
     const minDb = -110, maxDb = -10, stepDb = 10;
     for (let d = minDb; d <= maxDb; d += stepDb) {
       const y = y0 + h - ((d - minDb) / (maxDb - minDb)) * h;
@@ -289,7 +372,6 @@
   }
 
   function detectFormants(peaks, minSepHz) {
-    // Choose up to 4 prominent peaks with minimal separation
     const chosen = [];
     for (const p of peaks) {
       if (chosen.length >= 4) break;
@@ -299,16 +381,13 @@
       }
       if (ok) chosen.push(p);
     }
-    // Sort by frequency ascending (F1..F4)
     chosen.sort((a,b) => a.hz - b.hz);
     return chosen;
   }
 
   function pickPeaks(dbArray, maxHz, threshDb) {
-    const n = dbArray.length;
     const maxBin = binForHz(maxHz);
     const peaks = [];
-    // Simple local-maximum finder with neighborhood check
     for (let i = 2; i < maxBin - 2; i++) {
       const v = dbArray[i];
       if (v < threshDb) continue;
@@ -316,7 +395,6 @@
         peaks.push({ i, db: v, hz: i * hzPerBin() });
       }
     }
-    // Sort by amplitude descending
     peaks.sort((a,b) => b.db - a.db);
     return peaks;
   }
@@ -374,14 +452,30 @@
     const peaks = pickPeaks(freqData, maxHz, threshDb);
     const chosen = detectFormants(peaks, minSepHz);
 
-    // Draw selected peaks
+    // Optional vertical dashed lines at F1..F4
+    if (chkFormantLines.checked && chosen.length) {
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = 1;
+      chosen.forEach(p => {
+        const x = x0 + (p.hz / maxHz) * w;
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x, y0 + h);
+        ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // Draw selected peaks (markers + labels)
     ctx.save();
     ctx.font = "12px system-ui, sans-serif";
     ctx.textAlign = "center";
     const labels = ["F1", "F2", "F3", "F4"];
     chosen.forEach((p, idx) => {
       const x = x0 + (p.hz / maxHz) * w;
-      const y = y0 + h - ((p.db - (-110)) / (100)) * h; // same mapping as above
+      const y = y0 + h - ((p.db - (-110)) / (100)) * h;
       // Tick
       ctx.strokeStyle = "#000000";
       ctx.lineWidth = 1;
@@ -403,41 +497,274 @@
     });
     ctx.restore();
 
-    // Footer text
+    // Footer text with timestamp
+    const stamp = tsNow();
     if (chosen.length) {
       const s = chosen.map((p, i) => `${["F1","F2","F3","F4"][i] || ("P"+(i+1))}: ${formatHz(p.hz)} Гц`).join(" | ");
-      footText.textContent = `Формантные пики: ${s}.  Порог: ${threshDb} дБ, Мин. разнос: ${minSepHz} Гц, FFT: ${analyser.fftSize}, f_s: ${sampleRate} Гц.`;
+      footText.textContent = `${stamp} — Формантные пики: ${s}.  Порог: ${threshDb} дБ, Мин. разнос: ${minSepHz} Гц, FFT: ${analyser.fftSize}, f_s: ${sampleRate} Гц.`;
     } else {
-      footText.textContent = `Пики не обнаружены (увеличьте громкость, уменьшите порог или диапазон частот). FFT: ${analyser.fftSize}, f_s: ${sampleRate} Гц.`;
+      footText.textContent = `${stamp} — Пики не обнаружены (увеличьте громкость, уменьшите порог или диапазон частот). FFT: ${analyser.fftSize}, f_s: ${sampleRate} Гц.`;
     }
+  }
+
+  function buildComposedCanvasWithFooter() {
+    const dpr = window.devicePixelRatio || 1;
+    const srcW = canvas.width;
+    const srcH = canvas.height;
+    const footerH = Math.round(36 * dpr);
+    const out = document.createElement("canvas");
+    out.width = srcW;
+    out.height = srcH + footerH;
+    const octx = out.getContext("2d");
+    octx.fillStyle = "#ffffff";
+    octx.fillRect(0,0,out.width,out.height);
+    octx.drawImage(canvas, 0, 0);
+    octx.fillStyle = "#111111";
+    octx.font = `${Math.round(12 * dpr)}px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+    octx.textBaseline = "middle";
+    const text = (document.getElementById("footText")?.textContent || "").trim();
+    const leftPad = Math.round(10 * dpr);
+    const y = srcH + Math.round(footerH/2);
+    const maxWidth = out.width - leftPad*2;
+    const words = text.split(" ");
+    const lines = [];
+    let current = "";
+    for (let i = 0; i < words.length; i++) {
+      const trial = current ? (current + " " + words[i]) : words[i];
+      if (octx.measureText(trial).width <= maxWidth) {
+        current = trial;
+      } else {
+        if (current) lines.push(current);
+        current = words[i];
+      }
+    }
+    if (current) lines.push(current);
+    const lineH = Math.round(16 * dpr);
+    const startY = y - Math.round(((lines.length-1) * lineH)/2);
+    lines.forEach((ln, k) => {
+      octx.fillText(ln, leftPad, startY + k*lineH);
+    });
+    return out;
   }
 
   function snapshotPNG() {
+    const out = buildComposedCanvasWithFooter();
     const link = document.createElement("a");
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
     link.download = `voice_spectrum_${ts}.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.href = out.toDataURL("image/png");
     link.click();
   }
 
-  function exportCSV() {
+  function snapshotHTML() {
+    const out = buildComposedCanvasWithFooter();
+    const imgData = out.toDataURL("image/png");
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    const fftVal = analyser ? analyser.fftSize : (parseInt(selFFT.value,10)||4096);
+    const smoothVal = parseFloat(rngSmooth.value || "0").toFixed(2);
+    const maxHzVal = parseInt(maxHzInput.value || "4000", 10);
+    const threshVal = parseFloat(peakThreshInput.value || "-70");
+    const sepVal = parseFloat(peakMinSepInput.value || "150");
+    const formantsOn = !!chkFormants.checked;
+    const linesOn = !!chkFormantLines.checked;
+
+    const doc = [
+      "<!DOCTYPE html>",
+      "<html lang=\"ru\">",
+      "<head>",
+      "<meta charset=\"UTF-8\" />",
+      "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />",
+      "<title>Снимок спектра голоса</title>",
+      "<style>",
+      "body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,'Noto Sans','Helvetica Neue',sans-serif;margin:0;padding:16px;background:#fff;color:#111}",
+      "img{max-width:100%;height:auto;border:1px solid #ddd;border-radius:12px;}",
+      "h1{font-size:20px;margin:0 0 8px 0;}",
+      "code,pre{background:#f7f7f7;border:1px solid #eee;border-radius:8px;padding:8px 10px;display:block;white-space:pre-wrap;}",
+      ".meta{font-size:14px;color:#333;margin:8px 0;}",
+      "</style>",
+      "</head>",
+      "<body>",
+      "<h1>Снимок спектра голоса</h1>",
+      "<img alt=\"Снимок спектра\" src=\"", imgData, "\" />",
+      "<h2 style=\"font-size:16px;margin-top:16px;\">Параметры</h2>",
+      "<pre>",
+      "FFT: ", String(fftVal), "\n",
+      "Сглаживание: ", String(smoothVal), "\n",
+      "Макс. частота: ", String(maxHzVal), " Гц\n",
+      "Порог пиков: ", String(threshVal), " дБ\n",
+      "Мин. разнос пиков: ", String(sepVal), " Гц\n",
+      "Подписи формантов: ", (formantsOn ? "включены" : "выключены"), "\n",
+      "Вертикальные границы: ", (linesOn ? "включены (штриховые)" : "выключены"), "\n",
+      "</pre>",
+      "<div class=\"meta\">Источник: локальная запись с микрофона; файл самодостаточен, сгенерирован ", new Date().toLocaleString(), ".</div>",
+      "</body>",
+      "</html>"
+    ].join("");
+
+    const blob = new Blob([doc], {type: "text/html"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `voice_spectrum_snapshot_${ts}.html`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  // ---------- XLSX export (no external libs) ----------
+  function crc32(buf) {
+    let c = ~0;
+    for (let i = 0; i < buf.length; i++) {
+      c ^= buf[i];
+      for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+    }
+    return ~c >>> 0;
+  }
+  function dosDateTime(d=new Date()) {
+    const time = (d.getHours() << 11) | (d.getMinutes() << 5) | ((d.getSeconds()/2) & 0x1F);
+    const date = (((d.getFullYear()-1980) & 0x7F) << 9) | ((d.getMonth()+1) << 5) | (d.getDate());
+    return {time, date};
+  }
+  function le16(n) { const b = new Uint8Array(2); const v = new DataView(b.buffer); v.setUint16(0, n, true); return b; }
+  function le32(n) { const b = new Uint8Array(4); const v = new DataView(b.buffer); v.setUint32(0, n, true); return b; }
+  function concatUint8(chunks) { let len = 0; chunks.forEach(c => len += c.length); const out = new Uint8Array(len); let off = 0; chunks.forEach(c => { out.set(c, off); off += c.length; }); return out; }
+  function strBytes(s) { return new TextEncoder().encode(s); }
+  function xmlEscape(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  function makeZip(files) {
+    const now = dosDateTime(new Date());
+    const localChunks = []; const centralChunks = []; let offset = 0;
+    files.forEach(file => {
+      const nameBytes = strBytes(file.name);
+      const data = file.bytes;
+      const crc = crc32(data);
+      const compMethod = 0;
+      const compData = data;
+      const lh = [
+        strBytes("PK\x03\x04"),
+        le16(20),
+        le16(0),
+        le16(compMethod),
+        le16(now.time),
+        le16(now.date),
+        le32(crc),
+        le32(compData.length),
+        le32(data.length),
+        le16(nameBytes.length),
+        le16(0),
+        nameBytes,
+        compData
+      ];
+      const local = concatUint8(lh);
+      localChunks.push(local);
+
+      const ch = [
+        strBytes("PK\x01\x02"),
+        le16(0x031E),
+        le16(20),
+        le16(0), le16(compMethod),
+        le16(now.time), le16(now.date),
+        le32(crc), le32(compData.length), le32(data.length),
+        le16(nameBytes.length), le16(0), le16(0),
+        le16(0), le16(0), le32(0),
+        le32(offset),
+        nameBytes
+      ];
+      const central = concatUint8(ch);
+      centralChunks.push(central);
+
+      offset += local.length;
+    });
+    const cd = concatUint8(centralChunks);
+    const eocd = concatUint8([
+      strBytes("PK\x05\x06"),
+      le16(0), le16(0),
+      le16(files.length), le16(files.length),
+      le32(cd.length),
+      le32(offset),
+      le16(0)
+    ]);
+    return new Blob([concatUint8([...localChunks, cd, eocd])], {type: "application/zip"});
+  }
+
+  function buildSheetXML(rows) {
+    const colName = (n) => {
+      let s = ""; n = Math.max(1,n);
+      while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1)/26); }
+      return s;
+    };
+    let r = 1;
+    let xml = ['<?xml version="1.0" encoding="UTF-8"?>','<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">','<sheetData>'];
+    rows.forEach(row => {
+      xml.push(`<row r="${r}">`);
+      for (let c = 0; c < row.length; c++) {
+        const v = row[c];
+        const cellRef = colName(c+1) + r;
+        if (typeof v === "number" && isFinite(v)) {
+          xml.push(`<c r="${cellRef}"><v>${v}</v></c>`);
+        } else {
+          const s = xmlEscape(String(v));
+          xml.push(`<c r="${cellRef}" t="inlineStr"><is><t>${s}</t></is></c>`);
+        }
+      }
+      xml.push(`</row>`);
+      r++;
+    });
+    xml.push('</sheetData></worksheet>');
+    return xml.join("");
+  }
+
+  function exportXLSX() {
     if (!freqData || !analyser) return;
     const maxHz = Math.max(1000, Math.min(parseInt(maxHzInput.value || "4000", 10), Math.floor(sampleRate/2)));
     const maxBin = binForHz(maxHz);
-    let csv = "freq_hz,level_db\n";
+    const rows = [["freq_hz", "level_db"]];
     for (let i = 0; i < maxBin; i++) {
       const hz = i * hzPerBin();
       const db = freqData[i];
-      csv += `${hz.toFixed(1)},${db.toFixed(2)}\n`;
+      rows.push([+hz.toFixed(1), +db.toFixed(2)]);
     }
-    const blob = new Blob([csv], {type: "text/csv"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+
+    const files = [];
+    files.push({name: "[Content_Types].xml", bytes: strBytes(
+      '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '</Types>'
+    )});
+    files.push({name: "_rels/.rels", bytes: strBytes(
+      '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
+      '</Relationships>'
+    )});
+    files.push({name: "xl/workbook.xml", bytes: strBytes(
+      '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheets><sheet name="spectrum" sheetId="1" r:id="rId1"/></sheets>' +
+      '</workbook>'
+    )});
+    files.push({name: "xl/_rels/workbook.xml.rels", bytes: strBytes(
+      '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
+      '</Relationships>'
+    )});
+    const sheetXml = buildSheetXML(rows);
+    files.push({name: "xl/worksheets/sheet1.xml", bytes: strBytes(sheetXml)});
+
+    const zipBlob = makeZip(files);
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
-    a.href = url;
-    a.download = `voice_spectrum_${ts}.csv`;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(zipBlob);
+    a.download = `voice_spectrum_${ts}.xlsx`;
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
 
   // HiDPI fix
@@ -450,12 +777,12 @@
       canvas.height = Math.round(height * dpr);
     }
   }
-  const resizeObserver = new ResizeObserver(() => {
-    resizeCanvasToDisplaySize();
-  });
+  const resizeObserver = new ResizeObserver(() => { resizeCanvasToDisplaySize(); });
   resizeObserver.observe(canvas);
 
   // Initial
+  loadSettings();
+  lblSmooth.textContent = parseFloat(rngSmooth.value).toFixed(2);
   resizeCanvasToDisplaySize();
   setStatus("готов к запуску");
 })();
